@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: voxshield-backend
+    runtime: python
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        value: sqlite:///./voxshield.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: APPROVAL_SECRET
+        generateValue: true
+      - key: AGENT_API_TOKEN
+        generateValue: true
+      - key: BACKEND_CORS_ORIGINS
+        value: "*"

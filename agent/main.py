@@ -377,10 +377,15 @@ def _poll_and_execute(creds: dict):
 
 
 def main():
+    global BACKEND_URL
     parser = argparse.ArgumentParser(description="VoxShield AI Laptop Agent")
     parser.add_argument("--register", action="store_true", help="Run interactive device registration flow")
     parser.add_argument("--gui", action="store_true", help="Launch desktop GUI window with CONTINUE button")
+    parser.add_argument("--server", type=str, default=None, help="Backend URL (e.g. https://voxshield-backend.onrender.com)")
     args = parser.parse_args()
+
+    if args.server:
+        BACKEND_URL = args.server.rstrip("/")
 
     if args.gui:
         try:

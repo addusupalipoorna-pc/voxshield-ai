@@ -101,12 +101,11 @@ async def lifespan(app: FastAPI):
         "SQLite" if settings.using_sqlite else "PostgreSQL",
     )
 
-    if settings.is_development:
-        try:
-            init_db()
-            logger.info("Database tables initialized.")
-        except Exception as exc:
-            logger.warning("Could not initialise DB tables: %s", exc)
+    try:
+        init_db()
+        logger.info("Database tables initialized.")
+    except Exception as exc:
+        logger.warning("Could not initialise DB tables: %s", exc)
 
     yield
 
@@ -134,10 +133,10 @@ def create_app() -> FastAPI:
     app.add_middleware(RateLimitMiddleware)
 
     # ── CORS ─────────────────────────────────────────────────────────────────
-    origins = ["*"] if settings.is_development else settings.cors_origins
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
+        allow_origins=settings.cors_origins if settings.cors_origins else ["*"],
+        allow_origin_regex=r"https://.*|http://localhost:.*|http://127\.0\.0\.1:.*",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
