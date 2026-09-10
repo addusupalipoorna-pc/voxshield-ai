@@ -16,6 +16,9 @@ import {
   UserCheck,
   Radio,
   FileCheck,
+  Lock,
+  KeyRound,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   processVoiceCommand,
@@ -25,6 +28,8 @@ import {
   requestOTP,
   getCommandHistory,
   getDevices,
+  requestHostAccess,
+  verifyHostAccess,
   type ProcessCommandResponse,
 } from '../services/api';
 import { startWavRecording, type WavRecorderSession } from '../lib/wavRecorder';
@@ -78,6 +83,16 @@ export default function CommandCenter() {
   const [history, setHistory] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [hostMeta, setHostMeta] = useState<any>({
+    is_host_owner: true,
+    has_host_access: true,
+    owner_phone_masked: '+91 ******7166',
+    owner_email_masked: 'poo******@gmail.com',
+  });
+  const [showHostOtpModal, setShowHostOtpModal] = useState(false);
+  const [hostOtpCode, setHostOtpCode] = useState('');
+  const [hostOtpLoading, setHostOtpLoading] = useState(false);
+  const [hostOtpError, setHostOtpError] = useState('');
   const [waveData, setWaveData] = useState<number[]>(new Array(48).fill(0.1));
   const [error, setError] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -97,11 +112,53 @@ export default function CommandCenter() {
       const devRes = await getDevices();
       const devList = devRes.devices || [];
       setDevices(devList);
+      setHostMeta({
+        is_host_owner: devRes.is_host_owner ?? true,
+        has_host_access: devRes.has_host_access ?? true,
+        host_available: devRes.host_available ?? true,
+        owner_phone_masked: devRes.owner_phone_masked || '+91 ******7166',
+        owner_email_masked: devRes.owner_email_masked || 'poo******@gmail.com',
+      });
       if (devList.length > 0 && !selectedDeviceId) {
         setSelectedDeviceId(devList[0].id);
       }
     } catch {}
   }, [selectedDeviceId]);
+
+  const handleRequestHostAccess = async () => {
+    setHostOtpLoading(true);
+    setHostOtpError('');
+    try {
+      const res = await requestHostAccess();
+      setShowHostOtpModal(true);
+      setStatusMessage(res.message || 'OTP verification code sent to Poorna.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to dispatch host access OTP.');
+    } finally {
+      setHostOtpLoading(false);
+    }
+  };
+
+  const handleVerifyHostAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hostOtpCode.trim() || hostOtpCode.trim().length !== 6) {
+      setHostOtpError('Please enter the 6-digit passcode.');
+      return;
+    }
+    setHostOtpLoading(true);
+    setHostOtpError('');
+    try {
+      const res = await verifyHostAccess(hostOtpCode.trim());
+      setStatusMessage(res.message || 'Access granted!');
+      setShowHostOtpModal(false);
+      setHostOtpCode('');
+      await refreshHistoryAndDevices();
+    } catch (err: any) {
+      setHostOtpError(err.message || 'Invalid or expired passcode.');
+    } finally {
+      setHostOtpLoading(false);
+    }
+  };
 
   useEffect(() => {
     refreshHistoryAndDevices();
@@ -465,42 +522,87 @@ export default function CommandCenter() {
 
             <div className="space-y-2">
               {devices.length === 0 ? (
-                <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-500 text-center">
-                  No active laptop agents registered. Register a machine in Settings.
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-3">
+                  <div className="flex items-center gap-2 text-slate-700 font-bold">
+                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>No Personal Workstation Enclave Registered</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Workstations are strictly isolated for zero-trust privacy. You can register your own laptop in Settings, or request verified OTP access to Poorna's laptop.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/settings')}
+                      className="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl shadow-2xs text-center"
+                    >
+                      Register My Laptop
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRequestHostAccess}
+                      disabled={hostOtpLoading}
+                      className="px-3 py-2 bg-[#0B3B82] hover:bg-[#082F6B] text-white text-xs font-bold rounded-xl shadow-2xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-60 cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      {hostOtpLoading ? 'Sending OTP to Poorna...' : "Request Access to Host Laptop (Poorna)"}
+                    </button>
+                  </div>
                 </div>
               ) : (
-                devices.map((dev) => {
-                  const online = isDeviceOnline(dev);
-                  const isSelected = selectedDeviceId === dev.id;
-                  return (
-                    <div
-                      key={dev.id}
-                      onClick={() => setSelectedDeviceId(dev.id)}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                        isSelected
-                          ? 'bg-blue-50/60 border-[#0B3B82] shadow-xs'
-                          : 'bg-slate-50/50 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div>
-                        <div className="text-xs font-bold text-slate-800">{dev.device_name || dev.name}</div>
-                        <div className="text-[11px] text-slate-500">
-                          {dev.platform || 'Windows 11'} • Agent v{dev.agent_version || '1.0.0'}
-                        </div>
-                      </div>
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                          online
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                            : 'bg-slate-100 text-slate-500 border border-slate-200'
+                <>
+                  {devices.map((dev) => {
+                    const online = isDeviceOnline(dev);
+                    const isSelected = selectedDeviceId === dev.id;
+                    const isDelegated = Boolean(dev.is_delegated);
+                    return (
+                      <div
+                        key={dev.id}
+                        onClick={() => setSelectedDeviceId(dev.id)}
+                        className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-blue-50/60 border-[#0B3B82] shadow-xs'
+                            : 'bg-slate-50/50 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full ${online ? 'bg-emerald-600 animate-pulse' : 'bg-slate-400'}`} />
-                        {online ? 'ONLINE' : 'OFFLINE'}
-                      </span>
-                    </div>
-                  );
-                })
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                            {dev.device_name || dev.name}
+                            {isDelegated && (
+                              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                OTP Verified
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            {dev.platform || 'Windows 11'} • Agent v{dev.agent_version || '1.0.0'}
+                          </div>
+                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            online
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${online ? 'bg-emerald-600 animate-pulse' : 'bg-slate-400'}`} />
+                          {online ? 'ONLINE' : 'OFFLINE'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {!hostMeta.is_host_owner && !hostMeta.has_host_access && (
+                    <button
+                      type="button"
+                      onClick={handleRequestHostAccess}
+                      disabled={hostOtpLoading}
+                      className="w-full py-2 px-3 bg-blue-50/50 hover:bg-blue-50 border border-dashed border-blue-200 text-[#0B3B82] text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer mt-2"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      {hostOtpLoading ? 'Sending OTP to Poorna...' : "Also Connect to Poorna's Laptop (Requires OTP)"}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -811,6 +913,85 @@ export default function CommandCenter() {
         </div>
 
       </div>
+
+      {/* HOST ENCLAVE ACCESS OTP VERIFICATION MODAL */}
+      {showHostOtpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#0B3B82]">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Host Enclave Verification</h3>
+                  <span className="text-xs font-semibold text-slate-400">Owner Authorization Required</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHostOtpModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-amber-900 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-amber-800">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>Verification Code Dispatched</span>
+              </div>
+              <p className="text-[12px] text-slate-700 leading-relaxed">
+                For security, a 6-digit authorization code was sent directly to <strong>Poorna's Phone ({hostMeta.owner_phone_masked || '+91 ******7166'})</strong> and Email.
+              </p>
+              <p className="text-[11px] font-medium text-slate-500">
+                Ask Poorna for the verification passcode to authorize command execution on their laptop.
+              </p>
+            </div>
+
+            {hostOtpError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
+                {hostOtpError}
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyHostAccess} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Enter 6-Digit Passcode
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={hostOtpCode}
+                  onChange={(e) => setHostOtpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="• • • • • •"
+                  className="w-full text-center tracking-[0.6em] text-2xl font-mono font-bold py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#0B3B82] focus:bg-white text-slate-900"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowHostOtpModal(false)}
+                  className="flex-1 py-3 px-4 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={hostOtpLoading || hostOtpCode.length !== 6}
+                  className="flex-1 py-3 px-4 rounded-xl bg-[#0B3B82] hover:bg-[#082F6B] text-white text-xs font-bold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {hostOtpLoading ? 'Verifying...' : 'Verify & Connect'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -351,9 +351,45 @@ export interface DeviceItem {
   registered_at: string;
 }
 
-export async function getDevices(): Promise<{ devices: DeviceItem[] }> {
+export async function getDevices(): Promise<{
+  devices: DeviceItem[];
+  is_host_owner?: boolean;
+  has_host_access?: boolean;
+  host_available?: boolean;
+  owner_phone_masked?: string;
+  owner_email_masked?: string;
+}> {
   const res = await fetch(`${BASE}/devices`, { headers: authHeaders() });
-  return handleResponse<{ devices: DeviceItem[] }>(res);
+  return handleResponse<any>(res);
+}
+
+export async function requestHostAccess(): Promise<{
+  status: string;
+  message: string;
+  owner_phone_masked: string;
+  owner_email_masked: string;
+  expires_in_seconds: number;
+  demo_code?: string;
+}> {
+  const res = await fetch(`${BASE}/devices/request-host-access`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return handleResponse<any>(res);
+}
+
+export async function verifyHostAccess(code: string): Promise<{
+  success: boolean;
+  message: string;
+  host_enclave_unlocked: boolean;
+  device_name?: string;
+}> {
+  const res = await fetch(`${BASE}/devices/verify-host-access`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ code: code.trim() }),
+  });
+  return handleResponse<any>(res);
 }
 
 export async function registerDevice(deviceName: string, platform = 'windows', agentVersion = '1.0.0'): Promise<any> {

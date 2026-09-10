@@ -32,6 +32,7 @@ import {
   type DeviceItem,
   type VerificationStatus,
 } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import {
   AreaChart,
   Area,
@@ -43,6 +44,7 @@ import {
 } from 'recharts';
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [summary, setSummary] = useState<any>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
   const [incidents, setIncidents] = useState<any[]>([]);
@@ -61,7 +63,8 @@ export default function Dashboard() {
     setIsPairingLoading(true);
     setPairingSuccessMessage(null);
     try {
-      const res = await registerDevice("Poorna's Windows Laptop", 'windows', '1.0.0');
+      const defaultName = user?.name ? `${user.name}'s Laptop` : "Personal Windows Laptop";
+      const res = await registerDevice(defaultName, 'windows', '1.0.0');
       setPairingSuccessMessage(`Device paired successfully! Device ID: ${res.device_id || res.id}. Saved to agent/device_credentials.json`);
       // Reload devices and verification
       const [d, v] = await Promise.all([

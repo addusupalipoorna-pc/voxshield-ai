@@ -592,14 +592,24 @@ def continue_command_execution(
             TrustedDevice.user_id == current_user.id
         ).first()
     if not target_device:
-        target_device = db.query(TrustedDevice).filter(
-            TrustedDevice.user_id == current_user.id,
-            TrustedDevice.is_active == True,
-        ).first()
-    if not target_device:
-        target_device = db.query(TrustedDevice).filter(TrustedDevice.is_active == True).first()
+        target_device = db.query(TrustedDevice).filter(TrustedDevice.user_id == current_user.id, TrustedDevice.is_active == True).first()
 
-    is_online = True
+    # If targeting host laptop enclave, enforce Poorna's OTP authorization for guest users
+    from app.api.v1.devices import POORNA_EMAILS, POORNA_DEVICE_ID, AUTHORIZED_GUEST_ACCESS
+    is_poorna = (
+        (current_user.email and current_user.email.lower() in POORNA_EMAILS)
+        or current_user.id == "42415f60-8a9f-4893-9192-c39b4fe86b88"
+        or (current_user.phone and "7166" in current_user.phone)
+    )
+    if (payload.device_id == POORNA_DEVICE_ID or command.device_id == POORNA_DEVICE_ID or (target_device and target_device.id == POORNA_DEVICE_ID)) and not is_poorna:
+        if current_user.id not in AUTHORIZED_GUEST_ACCESS or AUTHORIZED_GUEST_ACCESS[current_user.id] <= now:
+            raise HTTPException(
+                status_code=403,
+                detail="Host enclave authorization required. An OTP verification code sent to Poorna's phone (+91 ******7166) or email must be verified before executing on Poorna's laptop."
+            )
+        if not target_device:
+            target_device = db.query(TrustedDevice).filter(TrustedDevice.id == POORNA_DEVICE_ID).first()
+
     if target_device:
         target_device.is_active = True
         target_device.status = "ACTIVE"
