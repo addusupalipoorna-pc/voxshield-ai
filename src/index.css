@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #FFFFFF;
+  --surface: #F8FAFC;
+  --surface-secondary: #F1F5F9;
+
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+
+  --primary: #0B3B82;
+  --primary-hover: #082F6B;
+  --secondary: #155EAD;
+  --accent: #0891B2;
+
+  --border: #E2E8F0;
+  --border-focus: #0B3B82;
+
+  --success: #15803D;
+  --warning: #B45309;
+  --danger: #B91C1C;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: #FFFFFF;
+  color: #0F172A;
+  font-family: 'Inter', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Enterprise scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Subtle focus indicators */
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  outline: 2px solid #0B3B82;
+  outline-offset: 1px;
+}
+
+/* Enterprise card utility */
+.enterprise-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+}
+
+.enterprise-card-header {
+  border-bottom: 1px solid #F1F5F9;
+  padding: 16px 20px;
+}
+
+/* Subtle transitions */
+.transition-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.transition-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.07);
+}
