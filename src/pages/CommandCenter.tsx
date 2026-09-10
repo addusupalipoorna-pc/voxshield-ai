@@ -32,6 +32,7 @@ import {
   verifyHostAccess,
   type ProcessCommandResponse,
 } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { startWavRecording, type WavRecorderSession } from '../lib/wavRecorder';
 
 type Stage =
@@ -76,6 +77,7 @@ function CommandBadge({ status }: { status: string }) {
 
 export default function CommandCenter() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [stage, setStage] = useState<Stage>('idle');
   const [recording, setRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -568,9 +570,13 @@ export default function CommandCenter() {
                         <div>
                           <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
                             {dev.device_name || dev.name}
-                            {isDelegated && (
+                            {isDelegated ? (
                               <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                                OTP Verified
+                                Poorna's Host • OTP Verified
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                Personal Laptop • Direct Free Access
                               </span>
                             )}
                           </div>
@@ -786,7 +792,7 @@ export default function CommandCenter() {
               {(stage === 'blocked' || processResult.decision === 'BLOCKED' || processResult.decision === 'BLOCK') && (
                 <div className="space-y-3 pt-2">
                   <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 leading-relaxed font-medium">
-                    <strong>Zero-Trust Policy: Execution Denied.</strong> Workstation execution is strictly restricted to enrolled authorized user Poorna. This security violation has been logged to the audit ledger.
+                    <strong>Zero-Trust Policy: Execution Denied.</strong> Workstation execution is strictly restricted to enrolled authorized user {user?.name || 'Owner'}. This security violation has been logged to the audit ledger.
                   </div>
                   <button
                     type="button"

@@ -169,11 +169,32 @@ def list_devices(
         else:
             devices = db.query(TrustedDevice).filter(TrustedDevice.user_id == current_user.id).all()
     else:
-        # Friend: only their personal devices
+        # Friend: only their personal devices (auto-provisioned if first visit)
         user_devices = db.query(TrustedDevice).filter(TrustedDevice.user_id == current_user.id).all()
-        devices = list(user_devices)
+        if not user_devices:
+            import uuid
+            owner_label = (current_user.name or "Personal").strip()
+            dev_name = f"{owner_label}'s Windows Laptop"
+            raw_token = str(uuid.uuid4())
+            new_dev = TrustedDevice(
+                user_id=current_user.id,
+                name=dev_name,
+                device_fingerprint=f"fp-{current_user.id[:8]}",
+                device_token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+                platform="windows",
+                agent_version="1.0.0",
+                status="ACTIVE",
+                is_active=True,
+                last_seen_at=now,
+            )
+            db.add(new_dev)
+            db.commit()
+            db.refresh(new_dev)
+            devices = [new_dev]
+        else:
+            devices = list(user_devices)
 
-        # Check if friend has active delegated access granted via OTP
+        # Check if friend has active delegated access granted via OTP to Poorna's laptop
         if current_user.id in AUTHORIZED_GUEST_ACCESS and AUTHORIZED_GUEST_ACCESS[current_user.id] > now:
             has_host_access = True
             poorna_dev = db.query(TrustedDevice).filter(TrustedDevice.id == POORNA_DEVICE_ID).first()
