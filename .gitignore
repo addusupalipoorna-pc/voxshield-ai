@@ -38,6 +38,7 @@ env/
 
 # Databases & uploads
 *.db
+*.db-*
 *.sqlite
 *.sqlite3
 backend/voxshield_dev.db
